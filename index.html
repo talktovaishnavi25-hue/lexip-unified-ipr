@@ -1,548 +1,307 @@
-<!DOCTYPE html>
-<html lang="en" class="dark">
+  <!DOCTYPE html>
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LexIP India — Unified IPR Search Console</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        :root { color-scheme: dark; }
-        body { background-color: #111827; color: #d1d5db; }
-        .table-fixed-layout { table-layout: fixed; }
-        .drawer-overlay {
-            position: fixed; top: 0; right: 0; bottom: 0; left: 0;
-            background-color: rgba(0, 0, 0, 0.5);
-            opacity: 0; transition: opacity 0.3s ease-in-out;
-            z-index: 40;
-        }
-        .drawer-overlay.open { opacity: 1; }
-        .drawer {
-            position: fixed; top: 0; bottom: 0; right: 0;
-            width: 100%; max-width: 28rem; /* 448px */
-            transform: translateX(100%); transition: transform 0.3s ease-in-out;
-            background-color: #1f2937;
-            z-index: 50;
-        }
-        .drawer.open { transform: translateX(0); }
-        .sort-icon { opacity: 0.3; }
-        .sort-icon.active { opacity: 1; }
-        .animate-ping-once {
-            animation: ping 1s cubic-bezier(0, 0, 0.2, 1) 1;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LexIP India — Unified IPR Search Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  </style>
 </head>
-<body class="antialiased font-sans">
-    <div id="root"></div>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-    <!-- React, ReactDOM, Babel for JSX, and Lucide Icons -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://unpkg.com/lucide-react@0.279.0/dist/lucide-react.js"></script>
+  <!-- TOP NAVIGATION -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="h-8 w-8 rounded bg-indigo-600 flex items-center justify-center font-bold text-white shadow">IP</div>
+      <h1 class="text-lg font-semibold tracking-tight text-white">LexIP India <span class="text-xs text-slate-400 font-normal ml-1">Unified Search</span></h1>
+      <span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">Phase 1 Prototype: Static Dataset</span>
+    </div>
+    <button onclick="toggleModal(true)" class="text-xs text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 px-3 py-1.5 rounded transition">
+      Legal Disclaimer
+    </button>
+  </header>
 
-    <!-- Main React Application -->
-    <script type="text/babel">
-        const { useState, useEffect, useMemo, useCallback } = React;
-        const { createRoot } = ReactDOM;
-        const { Search, X, FileDown, CheckCircle, Copy, ChevronsUpDown, ChevronUp, ChevronDown, Filter, RotateCcw } = lucide-react;
+  <!-- MAIN APP CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
 
-        const MOCK_DATA = [
-            // Trademarks
-            { id: 1, type: 'Trademark', title: 'TATA NEXON', reg_no: 'TM-451234', applicant: 'TATA Motors Ltd.', status: 'Registered', filing_date: '2020-05-15', nice_class: '12 (Vehicles)' },
-            { id: 2, type: 'Trademark', title: 'ZOMATO', reg_no: 'TM-398765', applicant: 'Zomato Ltd.', status: 'Registered', filing_date: '2018-11-22', nice_class: '39 (Transport and storage)' },
-            { id: 3, type: 'Trademark', title: 'JIO 5G', reg_no: 'TM-567890', applicant: 'Reliance Jio Infocomm Ltd.', status: 'Objected', filing_date: '2021-08-01', nice_class: '9 (Scientific apparatus)' },
-            { id: 4, type: 'Trademark', title: "HALDIRAM'S", reg_no: 'TM-123456', applicant: 'Haldiram Foods International Pvt. Ltd.', status: 'Opposed', filing_date: '2019-03-12', nice_class: '29 (Meats and processed foods)' },
+    <!-- SEARCH & CONTROLS -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+      <div class="relative">
+        <input 
+          id="searchInput" 
+          type="text" 
+          placeholder="Search by Mark, Patent Title, Applicant, or Application Number (e.g. Tata, Fuel, Darjeeling)..." 
+          class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-4 pr-24 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition"
+          oninput="handleSearch()"
+        />
+        <div class="absolute right-3 top-3 text-xs bg-slate-800 border border-slate-700 text-slate-400 px-2 py-1 rounded select-none">
+          Press / to focus
+        </div>
+      </div>
 
-            // Patents
-            { id: 5, type: 'Patent', title: 'Dual Fuel Injection System', reg_no: 'PAT-IN202111001', applicant: 'IIT Bombay', status: 'Granted', filing_date: '2021-01-20', ipc: 'F02D 19/06' },
-            { id: 6, type: 'Patent', title: 'Cryogenic Liquid Storage Tank', reg_no: 'PAT-IN201911002', applicant: 'ISRO', status: 'Granted', filing_date: '2019-07-30', ipc: 'F17C 3/02' },
-            { id: 7, type: 'Patent', title: 'Biodegradable Packaging Material', reg_no: 'PAT-IN202211003', applicant: 'CSIR', status: 'Examined', filing_date: '2022-02-18', ipc: 'B65D 65/46' },
-            { id: 8, type: 'Patent', title: 'Solar Cell Interconnection Method', reg_no: 'PAT-IN202011004', applicant: 'BHEL', status: 'Refused', filing_date: '2020-09-05', ipc: 'H01L 31/05' },
+      <!-- TABS & ACTIONS -->
+      <div class="flex flex-wrap items-center justify-between gap-4">
+        <div class="flex flex-wrap gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs" id="categoryTabs">
+          <button onclick="setCategory('All')" class="tab-btn active px-3 py-1.5 rounded-md font-medium text-white bg-indigo-600" data-cat="All">All (<span id="count-all">16</span>)</button>
+          <button onclick="setCategory('Trademark')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Trademark">Trademarks (4)</button>
+          <button onclick="setCategory('Patent')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Patent">Patents (4)</button>
+          <button onclick="setCategory('Copyright')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Copyright">Copyrights (4)</button>
+          <button onclick="setCategory('Geographical Indication')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Geographical Indication">GI (4)</button>
+        </div>
 
-            // Copyrights
-            { id: 9, type: 'Copyright', title: 'Chhota Bheem Episode 102', reg_no: 'CR-C-12345', applicant: 'Green Gold Animation', status: 'Registered', filing_date: '2017-06-10', work_type: 'Cinematograph Film' },
-            { id: 10, type: 'Copyright', title: 'UPI Core Switch Protocol', reg_no: 'CR-SW-54321', applicant: 'NPCI', status: 'Registered', filing_date: '2016-04-11', work_type: 'Software' },
-            { id: 11, type: 'Copyright', title: 'Sholay Screenplay', reg_no: 'CR-L-67890', applicant: 'Sippy Films', status: 'Registered', filing_date: '1975-08-15', work_type: 'Literary Work' },
-            { id: 12, type: 'Copyright', title: 'Ayurvedic Pharmacopeia Art', reg_no: 'CR-A-09876', applicant: 'Ministry of AYUSH', status: 'Registered', filing_date: '2021-10-25', work_type: 'Artistic Work' },
+        <div class="flex items-center gap-3">
+          <select id="statusFilter" onchange="handleSearch()" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+            <option value="All">All Statuses</option>
+            <option value="Registered">Registered / Granted</option>
+            <option value="Under Examination">Examined / Pending</option>
+            <option value="Objected">Objected / Opposed</option>
+          </select>
+          <button onclick="exportCSV()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition">
+            Export CSV
+          </button>
+        </div>
+      </div>
+    </div>
 
-            // Geographical Indications
-            { id: 13, type: 'GI', title: 'Darjeeling Tea', reg_no: 'GI-1', applicant: 'Tea Board of India', status: 'Registered', filing_date: '2003-10-27', state: 'West Bengal' },
-            { id: 14, type: 'GI', title: 'Kanchipuram Silk', reg_no: 'GI-25', applicant: 'Govt. of Tamil Nadu', status: 'Registered', filing_date: '2005-09-15', state: 'Tamil Nadu' },
-            { id: 15, type: 'GI', title: 'Mysore Sandal Soap', reg_no: 'GI-32', applicant: 'Karnataka Soaps & Detergents Ltd.', status: 'Registered', filing_date: '2006-03-21', state: 'Karnataka' },
-            { id: 16, type: 'GI', title: 'Alphonso Mango', reg_no: 'GI-139', applicant: 'DAPOLI AGRICULTURAL UNIVERSITY', status: 'Objected', filing_date: '2008-07-02', state: 'Maharashtra' },
-        ];
-        
-        const TYPE_COLORS = {
-            Trademark: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
-            Patent: 'bg-purple-500/20 text-purple-300 border border-purple-500/30',
-            Copyright: 'bg-green-500/20 text-green-300 border border-green-500/30',
-            GI: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30',
-        };
+    <!-- TABLE STATS -->
+    <div class="flex justify-between items-center text-xs text-slate-400 px-1">
+      <span id="resultsCount">Showing 16 records</span>
+      <span>Click any record to inspect provenance & metadata</span>
+    </div>
 
-        const STATUS_COLORS = {
-            Registered: 'bg-green-500/20 text-green-300 border border-green-500/30',
-            Granted: 'bg-green-500/20 text-green-300 border border-green-500/30',
-            Objected: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30',
-            Examined: 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30',
-            Opposed: 'bg-red-500/20 text-red-300 border border-red-500/30',
-            Refused: 'bg-red-500/20 text-red-300 border border-red-500/30',
-        };
-        
-        const FILTERS = [
-            'All', 'Trademarks', 'Patents', 'Copyrights', 'Geographical Indications'
-        ];
+    <!-- DATA TABLE -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs text-slate-300">
+          <thead class="bg-slate-950/60 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-medium">
+            <tr>
+              <th class="py-3.5 px-4">Type</th>
+              <th class="py-3.5 px-4">Title / Mark & Ref</th>
+              <th class="py-3.5 px-4">Applicant</th>
+              <th class="py-3.5 px-4">Status</th>
+              <th class="py-3.5 px-4">Filing Date</th>
+              <th class="py-3.5 px-4 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="recordsTable" class="divide-y divide-slate-800/60">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="hidden p-12 text-center text-slate-500 text-sm">
+        No IPR records matched your query. Try searching another term or resetting filters.
+      </div>
+    </div>
+  </main>
 
-        const STATUS_OPTIONS = [
-            'All Statuses',
-            'Registered/Granted',
-            'Objected/Examined',
-            'Opposed/Refused'
-        ];
-        
-        // --- Components ---
+  <!-- SLIDE-OVER DRAWER -->
+  <div id="drawerOverlay" onclick="closeDrawer()" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 hidden transition-opacity"></div>
+  <aside id="drawer" class="fixed right-0 top-0 h-full w-full max-w-md bg-slate-900 border-l border-slate-800 p-6 z-40 transform translate-x-full transition-transform duration-200 overflow-y-auto space-y-6">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+      <h3 class="text-base font-semibold text-white">Record Inspection</h3>
+      <button onclick="closeDrawer()" class="text-slate-400 hover:text-white text-lg px-2">&times;</button>
+    </div>
+    <div id="drawerContent" class="space-y-4">
+      <!-- Dynamically filled -->
+    </div>
+  </aside>
 
-        const LegalModal = ({ isOpen, onClose }) => {
-            if (!isOpen) return null;
+  <!-- LEGAL DISCLAIMER MODAL -->
+  <div id="disclaimerModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
+      <h3 class="text-lg font-semibold text-white">Legal & Regulatory Disclaimer</h3>
+      <div class="text-xs text-slate-300 space-y-2 leading-relaxed">
+        <p>This application is a <strong>Phase 1 prototype demonstration</strong> relying on normalized static sample data.</p>
+        <p>It is not an official search engine, legal opinion, or authorized registry service. Results should not be relied upon for formal IP filings or legal litigation without cross-verification via the official Intellectual Property India portals (ipindiaonline.gov.in, InPASS, or copyright.gov.in).</p>
+        <p>Addresses and personal contact details are withheld in compliance with the Digital Personal Data Protection Act (DPDP Act, 2023).</p>
+      </div>
+      <div class="text-right pt-2">
+        <button onclick="toggleModal(false)" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium">I Understand</button>
+      </div>
+    </div>
+  </div>
 
-            return (
-                <div 
-                    className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center"
-                    onClick={onClose}
-                >
-                    <div 
-                        className="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 w-full max-w-md text-gray-300"
-                        onClick={e => e.stopPropagation()}
-                    >
-                        <div className="flex justify-between items-center">
-                            <h2 className="text-xl font-semibold text-white">Legal Disclaimer</h2>
-                            <button onClick={onClose} className="text-gray-400 hover:text-white">
-                                <X size={24} />
-                            </button>
-                        </div>
-                        <p className="mt-4">
-                            Informational aggregation prototype. Not an official registry search or legal advice. Cross-verify via official registries before reliance.
-                        </p>
-                        <button 
-                            onClick={onClose}
-                            className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            Acknowledge
-                        </button>
-                    </div>
-                </div>
-            );
-        };
+  <script>
+    const RECORDS = [
+      { id: "tm-1", type: "Trademark", title: "TATA NEXON", applicant: "Tata Motors Limited", status: "Registered", ref: "3490123", filing_date: "2017-02-14", source: "ipindiaonline.gov.in", extra: "Nice Class 12 (Automobiles)", address: "Withheld (DPDP Compliance)" },
+      { id: "tm-2", type: "Trademark", title: "ZOMATO", applicant: "Zomato Limited", status: "Objected", ref: "2198302", filing_date: "2018-09-03", source: "ipindiaonline.gov.in", extra: "Nice Class 39 & 43 (Food Delivery)", address: "Withheld (DPDP Compliance)" },
+      { id: "tm-3", type: "Trademark", title: "JIO 5G", applicant: "Reliance Infocomm Ltd", status: "Registered", ref: "4589201", filing_date: "2020-08-11", source: "ipindiaonline.gov.in", extra: "Nice Class 9 & 38 (Telecom)", address: "Withheld (DPDP Compliance)" },
+      { id: "tm-4", type: "Trademark", title: "HALDIRAM'S", applicant: "Haldiram Foods Intl", status: "Registered", ref: "1928301", filing_date: "2015-11-20", source: "ipindiaonline.gov.in", extra: "Nice Class 29 & 30 (Confectionery)", address: "Withheld (DPDP Compliance)" },
 
-        const DetailDrawer = ({ record, onClose, isOpen }) => {
-            const [copied, setCopied] = useState(false);
+      { id: "pat-1", type: "Patent", title: "Dual Fuel Injection System for IC Engines", applicant: "IIT Bombay", status: "Registered", ref: "IN202121004567", filing_date: "2021-01-20", source: "ipindiaservices.gov.in (InPASS)", extra: "IPC: F02M 43/00", address: "Withheld (DPDP Compliance)" },
+      { id: "pat-2", type: "Patent", title: "Cryogenic Liquid Storage Tank with Multi-Layer Insulation", applicant: "ISRO / Dept of Space", status: "Registered", ref: "IN201941032110", filing_date: "2019-06-14", source: "ipindiaservices.gov.in (InPASS)", extra: "IPC: F17C 3/02", address: "Withheld (DPDP Compliance)" },
+      { id: "pat-3", type: "Patent", title: "Biodegradable Packaging Composite from Agro-Waste", applicant: "CSIR-NIIST", status: "Under Examination", ref: "IN202211089201", filing_date: "2022-10-05", source: "ipindiaservices.gov.in (InPASS)", extra: "IPC: B65D 65/46", address: "Withheld (DPDP Compliance)" },
+      { id: "pat-4", type: "Patent", title: "Solar Photovoltaic Cell Interconnect Architecture", applicant: "BHEL", status: "Under Examination", ref: "IN202331001298", filing_date: "2023-03-12", source: "ipindiaservices.gov.in (InPASS)", extra: "IPC: H02S 40/34", address: "Withheld (DPDP Compliance)" },
 
-            useEffect(() => {
-                if (!isOpen) {
-                    setCopied(false);
-                    return;
-                }
-                const handleKeyDown = (e) => {
-                    if (e.key === 'Escape') {
-                        onClose();
-                    }
-                };
-                window.addEventListener('keydown', handleKeyDown);
-                return () => window.removeEventListener('keydown', handleKeyDown);
-            }, [isOpen, onClose]);
+      { id: "cr-1", type: "Copyright", title: "UPI Core Switching Protocol Codebase", applicant: "National Payments Corp of India (NPCI)", status: "Registered", ref: "SW-14920/2020", filing_date: "2020-04-10", source: "copyright.gov.in", extra: "Computer Software", address: "Withheld (DPDP Compliance)" },
+      { id: "cr-2", type: "Copyright", title: "Chhota Bheem Episode 102 (Animated Work)", applicant: "Green Gold Animation Pvt Ltd", status: "Registered", ref: "CF-3091/2019", filing_date: "2019-11-02", source: "copyright.gov.in", extra: "Cinematograph Film", address: "Withheld (DPDP Compliance)" },
+      { id: "cr-3", type: "Copyright", title: "Ayurvedic Pharmacopeia Diagnostic Charts", applicant: "Ministry of Ayush", status: "Registered", ref: "A-94821/2021", filing_date: "2021-08-19", source: "copyright.gov.in", extra: "Artistic Work", address: "Withheld (DPDP Compliance)" },
+      { id: "cr-4", type: "Copyright", title: "Sholay Original Screenplay Draft", applicant: "Sippy Films", status: "Registered", ref: "L-20192/1975", filing_date: "1975-05-10", source: "copyright.gov.in", extra: "Literary Work", address: "Withheld (DPDP Compliance)" },
 
-            const copyJson = () => {
-                navigator.clipboard.writeText(JSON.stringify(record, null, 2));
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-            };
+      { id: "gi-1", type: "Geographical Indication", title: "Darjeeling Tea (Word & Logo)", applicant: "Tea Board of India", status: "Registered", ref: "GI-01 & GI-02", filing_date: "2003-10-27", source: "ipindia.gov.in (GI Registry)", extra: "Class 30 (West Bengal)", address: "Withheld (DPDP Compliance)" },
+      { id: "gi-2", type: "Geographical Indication", title: "Kanchipuram Silk Saree", applicant: "Kanchipuram Handloom Society", status: "Registered", ref: "GI-88", filing_date: "2005-06-02", source: "ipindia.gov.in (GI Registry)", extra: "Class 24 (Tamil Nadu)", address: "Withheld (DPDP Compliance)" },
+      { id: "gi-3", type: "Geographical Indication", title: "Mysore Sandal Soap", applicant: "Karnataka Soaps and Detergents Ltd", status: "Registered", ref: "GI-105", filing_date: "2006-02-14", source: "ipindia.gov.in (GI Registry)", extra: "Class 03 (Karnataka)", address: "Withheld (DPDP Compliance)" },
+      { id: "gi-4", type: "Geographical Indication", title: "Alphonso Mango", applicant: "Konkan Hapus Amba Utpadak Sangh", status: "Registered", ref: "GI-139", filing_date: "2008-05-19", source: "ipindia.gov.in (GI Registry)", extra: "Class 31 (Maharashtra)", address: "Withheld (DPDP Compliance)" }
+    ];
 
-            const getDynamicField = () => {
-                if (!record) return null;
-                switch (record.type) {
-                    case 'Trademark': return { label: 'Nice Class', value: record.nice_class };
-                    case 'Patent': return { label: 'IPC Code', value: record.ipc };
-                    case 'Copyright': return { label: 'Type of Work', value: record.work_type };
-                    case 'GI': return { label: 'Geographical State', value: record.state };
-                    default: return null;
-                }
-            };
-            
-            const dynamicField = getDynamicField();
+    let currentCategory = "All";
+    let filteredRecords = [...RECORDS];
 
-            return (
-                <>
-                    <div className={`drawer-overlay ${isOpen ? 'open' : ''}`} onClick={onClose}></div>
-                    <div className={`drawer ${isOpen ? 'open' : ''} p-6 flex flex-col text-gray-300 border-l border-gray-700`}>
-                        {record ? (
-                            <>
-                                <div className="flex-shrink-0 flex justify-between items-start">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-white">{record.title}</h2>
-                                        <span className={`inline-block px-2 py-0.5 mt-1 text-xs font-medium rounded-full ${STATUS_COLORS[record.status]}`}>{record.status}</span>
-                                    </div>
-                                    <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-700">
-                                        <X size={24} />
-                                    </button>
-                                </div>
-                                
-                                <div className="mt-6 space-y-4 flex-grow overflow-y-auto pr-2">
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="col-span-1 text-gray-400">Applicant</div>
-                                        <div className="col-span-2 font-medium text-white">{record.applicant}</div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="col-span-1 text-gray-400">Registration #</div>
-                                        <div className="col-span-2 font-mono text-gray-300">{record.reg_no}</div>
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="col-span-1 text-gray-400">Filing Date</div>
-                                        <div className="col-span-2 font-medium">{new Date(record.filing_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                                    </div>
-                                    {dynamicField && (
-                                        <div className="grid grid-cols-3 gap-4">
-                                            <div className="col-span-1 text-gray-400">{dynamicField.label}</div>
-                                            <div className="col-span-2 font-medium">{dynamicField.value}</div>
-                                        </div>
-                                    )}
-                                    <div className="grid grid-cols-3 gap-4">
-                                        <div className="col-span-1 text-gray-400">Applicant Address</div>
-                                        <div className="col-span-2 text-sm italic text-gray-500">[Withheld under DPDP Act compliance rules — Phase 1 preview]</div>
-                                    </div>
-                                </div>
+    function getTypeBadge(type) {
+      const colors = {
+        "Trademark": "bg-purple-500/10 text-purple-400 border-purple-500/20",
+        "Patent": "bg-blue-500/10 text-blue-400 border-blue-500/20",
+        "Copyright": "bg-teal-500/10 text-teal-400 border-teal-500/20",
+        "Geographical Indication": "bg-amber-500/10 text-amber-400 border-amber-500/20"
+      };
+      return `<span class="px-2 py-0.5 rounded text-[11px] border font-medium ${colors[type] || 'bg-slate-800'}">${type}</span>`;
+    }
 
-                                <div className="mt-6 flex-shrink-0 p-4 border border-dashed border-gray-600 rounded-lg bg-gray-900/50">
-                                    <h3 className="font-semibold text-white">Verification Card (Phase 2 Preview)</h3>
-                                    <div className="mt-3 text-sm space-y-2">
-                                        <p><span className="text-gray-400">Source Registry:</span> <span className="font-mono text-gray-300">ipindia.gov.in</span></p>
-                                        <p><span className="text-gray-400">Retrieved At:</span> <span className="font-mono text-gray-300">{new Date().toLocaleString('en-IN')}</span></p>
-                                    </div>
-                                    <button disabled className="mt-4 w-full text-center bg-gray-600 text-gray-400 font-bold py-2 px-4 rounded-md cursor-not-allowed">
-                                        Verify on Source Registry (Phase 2)
-                                    </button>
-                                </div>
+    function getStatusBadge(status) {
+      if (status === "Registered") {
+        return `<span class="px-2 py-0.5 rounded-full text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Registered / Granted</span>`;
+      } else if (status === "Under Examination") {
+        return `<span class="px-2 py-0.5 rounded-full text-[11px] bg-amber-500/10 text-amber-400 border border-amber-500/20">Under Examination</span>`;
+      }
+      return `<span class="px-2 py-0.5 rounded-full text-[11px] bg-rose-500/10 text-rose-400 border border-rose-500/20">${status}</span>`;
+    }
 
-                                <div className="mt-6 flex-shrink-0">
-                                    <button 
-                                        onClick={copyJson}
-                                        className="w-full flex items-center justify-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-md focus:outline-none focus:ring-2 focus:ring-gray-500"
-                                    >
-                                        {copied ? <><CheckCircle size={16} className="text-green-400"/> Copied!</> : <><Copy size={16}/> Copy JSON</>}
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <p>No record selected.</p>
-                        )}
-                    </div>
-                </>
-            );
-        };
-        
-        // --- App ---
+    function renderTable() {
+      const tbody = document.getElementById("recordsTable");
+      const emptyState = document.getElementById("emptyState");
+      document.getElementById("resultsCount").innerText = `Showing ${filteredRecords.length} of ${RECORDS.length} records`;
 
-        const App = () => {
-            const [records] = useState(MOCK_DATA);
-            const [searchTerm, setSearchTerm] = useState('');
-            const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-            const [activeTypeFilter, setActiveTypeFilter] = useState('All');
-            const [statusFilter, setStatusFilter] = useState('All Statuses');
-            const [sortConfig, setSortConfig] = useState({ key: 'filing_date', direction: 'descending' });
-            
-            const [selectedRecord, setSelectedRecord] = useState(null);
-            const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-            const [isModalOpen, setIsModalOpen] = useState(false);
+      if (filteredRecords.length === 0) {
+        tbody.innerHTML = "";
+        emptyState.classList.remove("hidden");
+        return;
+      }
 
-            const searchInputRef = React.useRef(null);
+      emptyState.classList.add("hidden");
+      tbody.innerHTML = filteredRecords.map(r => `
+        <tr onclick="openDrawer('${r.id}')" class="hover:bg-slate-800/40 cursor-pointer transition">
+          <td class="py-3 px-4">${getTypeBadge(r.type)}</td>
+          <td class="py-3 px-4">
+            <div class="font-medium text-white">${r.title}</div>
+            <div class="text-[11px] text-slate-400 font-mono">${r.ref}</div>
+          </td>
+          <td class="py-3 px-4 text-slate-300">${r.applicant}</td>
+          <td class="py-3 px-4">${getStatusBadge(r.status)}</td>
+          <td class="py-3 px-4 font-mono text-slate-400">${r.filing_date}</td>
+          <td class="py-3 px-4 text-right">
+            <button class="text-indigo-400 hover:text-indigo-300 text-xs">Inspect &rarr;</button>
+          </td>
+        </tr>
+      `).join("");
+    }
 
-            // Debounce search term
-            useEffect(() => {
-                const handler = setTimeout(() => {
-                    setDebouncedSearchTerm(searchTerm);
-                }, 200);
+    function handleSearch() {
+      const query = document.getElementById("searchInput").value.toLowerCase();
+      const status = document.getElementById("statusFilter").value;
 
-                return () => {
-                    clearTimeout(handler);
-                };
-            }, [searchTerm]);
+      filteredRecords = RECORDS.filter(r => {
+        const matchesCat = currentCategory === "All" || r.type === currentCategory;
+        const matchesStatus = status === "All" || (status === "Registered" ? (r.status === "Registered") : r.status === status);
+        const matchesQuery = r.title.toLowerCase().includes(query) ||
+                             r.applicant.toLowerCase().includes(query) ||
+                             r.ref.toLowerCase().includes(query);
+        return matchesCat && matchesStatus && matchesQuery;
+      });
 
-            // Global '/' key shortcut
-            useEffect(() => {
-                const handleKeyDown = (event) => {
-                    if (event.key === '/' && event.target.tagName !== 'INPUT') {
-                        event.preventDefault();
-                        searchInputRef.current?.focus();
-                    }
-                };
-                window.addEventListener('keydown', handleKeyDown);
-                return () => window.removeEventListener('keydown', handleKeyDown);
-            }, []);
+      renderTable();
+    }
 
-            const filteredRecords = useMemo(() => {
-                let filtered = [...records];
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll(".tab-btn").forEach(btn => {
+        if (btn.dataset.cat === cat) {
+          btn.className = "tab-btn active px-3 py-1.5 rounded-md font-medium text-white bg-indigo-600";
+        } else {
+          btn.className = "tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200";
+        }
+      });
+      handleSearch();
+    }
 
-                // Filter by Type
-                if (activeTypeFilter !== 'All') {
-                    const typeMap = {
-                        'Trademarks': 'Trademark',
-                        'Patents': 'Patent',
-                        'Copyrights': 'Copyright',
-                        'Geographical Indications': 'GI'
-                    };
-                    filtered = filtered.filter(r => r.type === typeMap[activeTypeFilter]);
-                }
+    function openDrawer(id) {
+      const r = RECORDS.find(x => x.id === id);
+      if (!r) return;
 
-                // Filter by Status
-                if (statusFilter !== 'All Statuses') {
-                    const statusMap = {
-                        'Registered/Granted': ['Registered', 'Granted'],
-                        'Objected/Examined': ['Objected', 'Examined'],
-                        'Opposed/Refused': ['Opposed', 'Refused']
-                    };
-                    filtered = filtered.filter(r => statusMap[statusFilter].includes(r.status));
-                }
+      const content = document.getElementById("drawerContent");
+      content.innerHTML = `
+        <div class="space-y-1">
+          <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold">${r.type}</div>
+          <h2 class="text-lg font-bold text-white">${r.title}</h2>
+          <div class="font-mono text-xs text-slate-400">Ref / Reg No: ${r.ref}</div>
+        </div>
 
-                // Filter by Search Term
-                if (debouncedSearchTerm) {
-                    const lowercasedTerm = debouncedSearchTerm.toLowerCase();
-                    filtered = filtered.filter(r => 
-                        r.title.toLowerCase().includes(lowercasedTerm) ||
-                        r.applicant.toLowerCase().includes(lowercasedTerm) ||
-                        r.reg_no.toLowerCase().includes(lowercasedTerm)
-                    );
-                }
+        <div class="p-3 bg-slate-950 border border-slate-800 rounded-lg space-y-2 text-xs">
+          <div class="flex justify-between"><span class="text-slate-400">Applicant:</span> <span class="text-white font-medium">${r.applicant}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Status:</span> <span>${getStatusBadge(r.status)}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Filing Date:</span> <span class="text-slate-200 font-mono">${r.filing_date}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Classification:</span> <span class="text-slate-200">${r.extra}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Applicant Address:</span> <span class="text-amber-400/80">${r.address}</span></div>
+        </div>
 
-                return filtered;
-            }, [records, debouncedSearchTerm, activeTypeFilter, statusFilter]);
-            
-            const sortedRecords = useMemo(() => {
-                let sortableItems = [...filteredRecords];
-                if (sortConfig.key) {
-                    sortableItems.sort((a, b) => {
-                        let aValue = a[sortConfig.key];
-                        let bValue = b[sortConfig.key];
-                        
-                        if (sortConfig.key === 'filing_date') {
-                            aValue = new Date(aValue);
-                            bValue = new Date(bValue);
-                        }
+        <!-- PROVENANCE / VERIFICATION CARD (PHASE 2) -->
+        <div class="border border-slate-800 bg-slate-950/80 rounded-lg p-4 space-y-3">
+          <div class="text-xs font-semibold text-indigo-400 flex items-center gap-1">
+            <span>●</span> Data Provenance & Verification
+          </div>
+          <div class="text-xs text-slate-400 space-y-1.5">
+            <div><strong class="text-slate-300">Registry Source:</strong> ${r.source}</div>
+            <div><strong class="text-slate-300">Last Verified:</strong> 2026-03-01T10:00:00Z</div>
+          </div>
+          <button disabled class="w-full py-2 px-3 text-xs bg-slate-800 text-slate-500 rounded border border-slate-700 cursor-not-allowed">
+            Verify Live on Registry (Phase 2 Pipeline)
+          </button>
+        </div>
+      `;
 
-                        if (aValue < bValue) {
-                            return sortConfig.direction === 'ascending' ? -1 : 1;
-                        }
-                        if (aValue > bValue) {
-                            return sortConfig.direction === 'ascending' ? 1 : -1;
-                        }
-                        return 0;
-                    });
-                }
-                return sortableItems;
-            }, [filteredRecords, sortConfig]);
+      document.getElementById("drawerOverlay").classList.remove("hidden");
+      document.getElementById("drawer").classList.remove("translate-x-full");
+    }
 
-            const requestSort = (key) => {
-                let direction = 'ascending';
-                if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-                    direction = 'descending';
-                }
-                setSortConfig({ key, direction });
-            };
+    function closeDrawer() {
+      document.getElementById("drawerOverlay").classList.add("hidden");
+      document.getElementById("drawer").classList.add("translate-x-full");
+    }
 
-            const handleRowClick = (record) => {
-                setSelectedRecord(record);
-                setIsDrawerOpen(true);
-            };
-            
-            const handleCloseDrawer = () => {
-                setIsDrawerOpen(false);
-            };
+    function toggleModal(show) {
+      document.getElementById("disclaimerModal").classList.toggle("hidden", !show);
+    }
 
-            const resetFilters = () => {
-                setSearchTerm('');
-                setDebouncedSearchTerm('');
-                setActiveTypeFilter('All');
-                setStatusFilter('All Statuses');
-                setSortConfig({ key: 'filing_date', direction: 'descending' });
-            };
-            
-            const exportToCsv = () => {
-                const headers = ['Type', 'Title/Mark', 'Registration No', 'Applicant', 'Status', 'Filing Date'];
-                const rows = sortedRecords.map(r => [
-                    r.type,
-                    `"${r.title.replace(/"/g, '""')}"`,
-                    r.reg_no,
-                    `"${r.applicant.replace(/"/g, '""')}"`,
-                    r.status,
-                    r.filing_date
-                ].join(','));
-                
-                const csvContent = "data:text/csv;charset=utf-8," + [headers.join(','), ...rows].join('\n');
-                const encodedUri = encodeURI(csvContent);
-                const link = document.createElement("a");
-                link.setAttribute("href", encodedUri);
-                link.setAttribute("download", `lexip_export_${new Date().toISOString().split('T')[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            };
-            
-            const getCount = (type) => {
-                if (type === 'All') return records.length;
-                const typeMap = {
-                    'Trademarks': 'Trademark',
-                    'Patents': 'Patent',
-                    'Copyrights': 'Copyright',
-                    'Geographical Indications': 'GI'
-                };
-                return records.filter(r => r.type === typeMap[type]).length;
-            };
+    function exportCSV() {
+      let csv = "ID,Type,Title,Applicant,Status,Reference,FilingDate,Source\\n";
+      filteredRecords.forEach(r => {
+        csv += `"${r.id}","${r.type}","${r.title}","${r.applicant}","${r.status}","${r.ref}","${r.filing_date}","${r.source}"\\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', 'lexip_records.csv');
+      a.click();
+    }
 
-            const SortableHeader = ({ label, sortKey }) => {
-                const isSorting = sortConfig.key === sortKey;
-                const Icon = isSorting ? (sortConfig.direction === 'ascending' ? ChevronUp : ChevronDown) : ChevronsUpDown;
-                return (
-                    <th onClick={() => requestSort(sortKey)} className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-700/50">
-                        <div className="flex items-center">
-                            {label}
-                            <Icon size={14} className={`ml-2 ${isSorting ? 'sort-icon active' : 'sort-icon'}`} />
-                        </div>
-                    </th>
-                );
-            };
+    // Keyboard shortcut '/'
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "/" && document.activeElement !== document.getElementById("searchInput")) {
+        e.preventDefault();
+        document.getElementById("searchInput").focus();
+      }
+      if (e.key === "Escape") {
+        closeDrawer();
+        toggleModal(false);
+      }
+    });
 
-            return (
-                <div className="min-h-screen bg-gray-900 text-gray-300 p-4 sm:p-6 lg:p-8">
-                    <div className="max-w-7xl mx-auto">
-                        {/* Header */}
-                        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                            <div>
-                                <h1 className="text-2xl font-bold text-white">LexIP India — Unified IPR Search Console</h1>
-                                <div className="mt-2 flex items-center gap-3">
-                                    <span className="inline-block bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold px-2.5 py-0.5 rounded-full">Phase 1 Prototype: Static Dataset</span>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => setIsModalOpen(true)}
-                                className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-md text-sm whitespace-nowrap"
-                            >
-                                Legal Disclaimer
-                            </button>
-                        </header>
-
-                        {/* Search & Filters */}
-                        <div className="mt-8 p-4 bg-gray-800 border border-gray-700 rounded-lg">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                                <div className="relative md:col-span-3">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Search size={20} className="text-gray-400" />
-                                    </div>
-                                    <input
-                                        ref={searchInputRef}
-                                        type="text"
-                                        placeholder="Search by Title, Applicant, Reg No... (Press '/' to focus)"
-                                        value={searchTerm}
-                                        onChange={e => setSearchTerm(e.target.value)}
-                                        className="block w-full bg-gray-900 border border-gray-600 rounded-md py-2 pl-10 pr-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                </div>
-                                <div className="relative md:col-span-2">
-                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Filter size={20} className="text-gray-400" />
-                                    </div>
-                                    <select 
-                                        value={statusFilter} 
-                                        onChange={e => setStatusFilter(e.target.value)}
-                                        className="block w-full bg-gray-900 border border-gray-600 rounded-md py-2 pl-10 pr-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none"
-                                    >
-                                        {STATUS_OPTIONS.map(opt => <option key={opt}>{opt}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            
-                            <div className="mt-4 flex flex-wrap items-center gap-2">
-                                {FILTERS.map(filter => (
-                                    <button 
-                                        key={filter}
-                                        onClick={() => setActiveTypeFilter(filter)}
-                                        className={`px-3 py-1 text-sm font-medium rounded-full ${activeTypeFilter === filter ? 'bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'}`}
-                                    >
-                                        {filter} <span className="text-xs opacity-70 ml-1">{getCount(filter)}</span>
-                                    </button>
-                                ))}
-                                <button onClick={resetFilters} className="ml-auto flex items-center gap-2 px-3 py-1 text-sm font-medium text-gray-400 hover:text-white hover:bg-gray-700 rounded-full">
-                                    <RotateCcw size={14}/> Reset Filters
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Results Table */}
-                        <div className="mt-6 flow-root">
-                            <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                                <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                                    <div className="border border-gray-700 rounded-lg overflow-hidden">
-                                        <div className="p-4 bg-gray-800 border-b border-gray-700 flex justify-between items-center">
-                                            <h3 className="font-semibold text-white">Search Results ({sortedRecords.length} found)</h3>
-                                            <button 
-                                                onClick={exportToCsv}
-                                                className="flex items-center gap-2 bg-green-600/80 hover:bg-green-600 text-white font-bold py-1.5 px-3 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                                                disabled={sortedRecords.length === 0}
-                                            >
-                                                <FileDown size={16}/> Export CSV
-                                            </button>
-                                        </div>
-                                        <table className="min-w-full divide-y divide-gray-700 table-fixed-layout">
-                                            <thead className="bg-gray-800">
-                                                <tr>
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-32">Type</th>
-                                                    <SortableHeader label="Title / Mark" sortKey="title" />
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-1/4">Applicant</th>
-                                                    <SortableHeader label="Status" sortKey="status" />
-                                                    <SortableHeader label="Filing Date" sortKey="filing_date" />
-                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider w-24">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-gray-800/50 divide-y divide-gray-700">
-                                                {sortedRecords.length > 0 ? sortedRecords.map(record => (
-                                                    <tr 
-                                                        key={record.id} 
-                                                        className="hover:bg-gray-700/50 cursor-pointer"
-                                                        onClick={() => handleRowClick(record)}
-                                                    >
-                                                        <td className="px-4 py-4 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-md ${TYPE_COLORS[record.type]}`}>{record.type}</span></td>
-                                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden text-ellipsis">
-                                                            <div className="font-medium text-white">{record.title}</div>
-                                                            <div className="text-sm text-gray-400 font-mono">{record.reg_no}</div>
-                                                        </td>
-                                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden text-ellipsis text-gray-300">{record.applicant}</td>
-                                                        <td className="px-4 py-4 whitespace-nowrap"><span className={`px-2 py-1 text-xs font-semibold rounded-md ${STATUS_COLORS[record.status]}`}>{record.status}</span></td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-gray-300">{new Date(record.filing_date).toLocaleDateString('en-CA')}</td>
-                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium">
-                                                            <a href="#" className="text-blue-400 hover:text-blue-300">View</a>
-                                                        </td>
-                                                    </tr>
-                                                )) : (
-                                                    <tr>
-                                                        <td colSpan="6" className="text-center py-10 text-gray-500">
-                                                            No records found. Try adjusting your search or filters.
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-
-                    <LegalModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
-                    <DetailDrawer record={selectedRecord} isOpen={isDrawerOpen} onClose={handleCloseDrawer} />
-                </div>
-            );
-        };
-        
-        const root = createRoot(document.getElementById('root'));
-        root.render(<App />);
-
-    </script>
+    // Initial render
+    renderTable();
+  </script>
 </body>
-</html>
+</html>         
+              
+                                     
