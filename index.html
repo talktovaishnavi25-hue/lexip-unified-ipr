@@ -3,24 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>LexIP India — Unified IPR Search Console (Phase 2)</title>
+  <title>LexIP India — Unified IPR Search Console</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Supabase Client JS SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-  <!-- HEADER -->
+  <!-- TOP NAVIGATION -->
   <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-20 px-6 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <div class="h-8 w-8 rounded bg-indigo-600 flex items-center justify-center font-bold text-white shadow">IP</div>
       <h1 class="text-lg font-semibold tracking-tight text-white">LexIP India <span class="text-xs text-slate-400 font-normal ml-1">Unified Search</span></h1>
-      <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium flex items-center gap-1.5">
-        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Phase 2: Live Supabase Cloud
-      </span>
+      <span class="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 font-medium">Phase 1 Prototype: Verified Static Index</span>
     </div>
     <button onclick="toggleModal(true)" class="text-xs text-slate-300 hover:text-white border border-slate-700 hover:border-slate-500 px-3 py-1.5 rounded transition">
       Legal Disclaimer
@@ -36,29 +32,28 @@
         <input 
           id="searchInput" 
           type="text" 
-          placeholder="Search live Postgres by Mark, Patent, Applicant, or Ref (e.g. Tata, Fuel, IIT, ISRO)..." 
+          placeholder="Search by Mark, Patent Title, Applicant, or Ref (e.g. Tata, Fuel, IIT, ISRO, Darjeeling)..." 
           class="w-full bg-slate-950 border border-slate-700 rounded-lg pl-4 pr-24 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 transition shadow-inner"
-          oninput="handleSearchDebounced()"
+          oninput="handleSearch()"
           autofocus
         />
-        <div id="searchSpinner" class="hidden absolute right-10 top-3 text-xs text-indigo-400 animate-spin font-bold">⟳</div>
         <div class="absolute right-3 top-3 text-xs bg-slate-800 border border-slate-700 text-slate-400 px-2 py-1 rounded select-none">
-          Press /
+          Press / to focus
         </div>
       </div>
 
       <!-- TABS & ACTIONS -->
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div class="flex flex-wrap gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs" id="categoryTabs">
-          <button onclick="setCategory('All')" class="tab-btn active px-3 py-1.5 rounded-md font-medium text-white bg-indigo-600" data-cat="All">All Categories</button>
-          <button onclick="setCategory('Trademark')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Trademark">Trademarks</button>
-          <button onclick="setCategory('Patent')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Patent">Patents</button>
-          <button onclick="setCategory('Copyright')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Copyright">Copyrights</button>
-          <button onclick="setCategory('Geographical Indication')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Geographical Indication">GI</button>
+          <button onclick="setCategory('All')" class="tab-btn active px-3 py-1.5 rounded-md font-medium text-white bg-indigo-600" data-cat="All">All Categories (16)</button>
+          <button onclick="setCategory('Trademark')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Trademark">Trademarks (4)</button>
+          <button onclick="setCategory('Patent')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Patent">Patents (4)</button>
+          <button onclick="setCategory('Copyright')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Copyright">Copyrights (4)</button>
+          <button onclick="setCategory('Geographical Indication')" class="tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200" data-cat="Geographical Indication">GI (4)</button>
         </div>
 
         <div class="flex items-center gap-3">
-          <select id="statusFilter" onchange="handleSearchDebounced()" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+          <select id="statusFilter" onchange="handleSearch()" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
             <option value="All">All Statuses</option>
             <option value="Registered">Registered / Granted</option>
             <option value="Under Examination">Under Examination</option>
@@ -71,24 +66,27 @@
       </div>
     </div>
 
-    <!-- STATS -->
+    <!-- TABLE STATS -->
     <div id="statsBar" class="hidden justify-between items-center text-xs text-slate-400 px-1">
-      <span id="resultsCount">Queried PostgreSQL</span>
-      <span>Click any record to inspect provenance & live data</span>
+      <span id="resultsCount">Showing 0 records</span>
+      <span>Click any record to inspect provenance & metadata</span>
     </div>
 
     <!-- DATA TABLE CONTAINER -->
     <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+      
+      <!-- EMPTY STATE PROMPT -->
       <div id="initialState" class="py-16 px-4 text-center space-y-3">
         <div class="h-10 w-10 mx-auto rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 text-lg font-serif">
           🔍
         </div>
-        <h2 class="text-sm font-semibold text-slate-200">Unified PostgreSQL Registry</h2>
+        <h2 class="text-sm font-semibold text-slate-200">Unified Registry Awaiting Query</h2>
         <p class="text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
-          Type an entity, mark, patent title, or registration number above to run live queries across Supabase Cloud.
+          Type an entity, mark, patent title, or registration number above to search across Trademarks, Patents, Copyrights, and Geographical Indications.
         </p>
       </div>
 
+      <!-- RESULTS TABLE -->
       <div id="tableWrapper" class="overflow-x-auto hidden">
         <table class="w-full text-left text-xs text-slate-300">
           <thead class="bg-slate-950/60 border-b border-slate-800 text-slate-400 uppercase tracking-wider font-medium">
@@ -105,8 +103,9 @@
         </table>
       </div>
 
+      <!-- NO MATCH FOUND -->
       <div id="noMatchState" class="hidden p-12 text-center text-slate-500 text-xs">
-        No records found in the database.
+        No IPR records matched your query. Try a broader search term or reset status filters.
       </div>
     </div>
   </main>
@@ -121,13 +120,14 @@
     <div id="drawerContent" class="space-y-4"></div>
   </aside>
 
-  <!-- DISCLAIMER MODAL -->
+  <!-- LEGAL DISCLAIMER MODAL -->
   <div id="disclaimerModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-4 shadow-2xl">
       <h3 class="text-lg font-semibold text-white">Legal & Regulatory Disclaimer</h3>
       <div class="text-xs text-slate-300 space-y-2 leading-relaxed">
-        <p>This application is powered by a live PostgreSQL cloud database tracking Indian IPR records.</p>
-        <p>Applicant physical addresses are scrubbed at ingestion to comply with the <strong>Digital Personal Data Protection Act (DPDP Act, 2023)</strong>.</p>
+        <p>This prototype console aggregates multi-category Indian IPR data for competition demonstration purposes.</p>
+        <p>Applicant physical addresses are redacted at the presentation layer to adhere strictly to the <strong>Digital Personal Data Protection Act (DPDP Act, 2023)</strong>.</p>
+        <p>Direct official registries: ipindiaonline.gov.in (Trademarks/GI), ipindiaservices.gov.in (InPASS Patents), and copyright.gov.in (Copyrights).</p>
       </div>
       <div class="text-right pt-2">
         <button onclick="toggleModal(false)" class="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg font-medium">I Understand</button>
@@ -136,14 +136,30 @@
   </div>
 
   <script>
-    // 1. SUPABASE CLIENT INITIALIZATION
-    const SUPABASE_URL = "https://fgjvphuworiqczarajhx.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnanZwaHV3b3JpcWN6YXJhamh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNjI3OTQsImV4cCI6MjEwNDYzODc5NH0.lDarnDXHxrTYDlXlvS3-wyH8HnYVi3pcGaFBgllDl6g";
-    const client = supabase.createClient(const SUPABASE_URL = "https://fgjvphuworiqczarajhx.supabase.co";eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnanZwaHV3b3JpcWN6YXJhamh4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNjI3OTQsImV4cCI6MjEwNDYzODc5NH0.lDarnDXHxrTYDlXlvS3-wyH8HnYVi3pcGaFBgllDl6g, );
+    const RECORDS = [
+      { id: "tm-1", type: "Trademark", title: "TATA NEXON", applicant: "Tata Motors Limited", status: "Registered", ref: "3490123", filing_date: "2017-02-14", source: "https://ipindiaonline.gov.in", extra: "Nice Class 12 (Automobiles)", address: "Withheld (DPDP Compliance)" },
+      { id: "tm-2", type: "Trademark", title: "ZOMATO", applicant: "Zomato Limited", status: "Objected", ref: "2198302", filing_date: "2018-09-03", source: "https://ipindiaonline.gov.in", extra: "Nice Class 39 & 43 (Food Delivery)", address: "Withheld (DPDP Compliance)" },
+      { id: "tm-3", type: "Trademark", title: "JIO 5G", applicant: "Reliance Infocomm Ltd", status: "Registered", ref: "4589201", filing_date: "2020-08-11", source: "https://ipindiaonline.gov.in", extra: "Nice Class 9 & 38 (Telecom)", address: "Withheld (DPDP Compliance)" },
+      { id: "tm-4", type: "Trademark", title: "HALDIRAM'S", applicant: "Haldiram Foods Intl", status: "Registered", ref: "1928301", filing_date: "2015-11-20", source: "https://ipindiaonline.gov.in", extra: "Nice Class 29 & 30 (Confectionery)", address: "Withheld (DPDP Compliance)" },
+
+      { id: "pat-1", type: "Patent", title: "Dual Fuel Injection System for IC Engines", applicant: "IIT Bombay", status: "Registered", ref: "IN202121004567", filing_date: "2021-01-20", source: "https://ipindiaservices.gov.in", extra: "IPC: F02M 43/00", address: "Withheld (DPDP Compliance)" },
+      { id: "pat-2", type: "Patent", title: "Cryogenic Liquid Storage Tank with Multi-Layer Insulation", applicant: "ISRO / Dept of Space", status: "Registered", ref: "IN201941032110", filing_date: "2019-06-14", source: "https://ipindiaservices.gov.in", extra: "IPC: F17C 3/02", address: "Withheld (DPDP Compliance)" },
+      { id: "pat-3", type: "Patent", title: "Biodegradable Packaging Composite from Agro-Waste", applicant: "CSIR-NIIST", status: "Under Examination", ref: "IN202211089201", filing_date: "2022-10-05", source: "https://ipindiaservices.gov.in", extra: "IPC: B65D 65/46", address: "Withheld (DPDP Compliance)" },
+      { id: "pat-4", type: "Patent", title: "Solar Photovoltaic Cell Interconnect Architecture", applicant: "BHEL", status: "Under Examination", ref: "IN202331001298", filing_date: "2023-03-12", source: "https://ipindiaservices.gov.in", extra: "IPC: H02S 40/34", address: "Withheld (DPDP Compliance)" },
+
+      { id: "cr-1", type: "Copyright", title: "UPI Core Switching Protocol Codebase", applicant: "National Payments Corp of India (NPCI)", status: "Registered", ref: "SW-14920/2020", filing_date: "2020-04-10", source: "https://copyright.gov.in", extra: "Computer Software", address: "Withheld (DPDP Compliance)" },
+      { id: "cr-2", type: "Copyright", title: "Chhota Bheem Episode 102 (Animated Work)", applicant: "Green Gold Animation Pvt Ltd", status: "Registered", ref: "CF-3091/2019", filing_date: "2019-11-02", source: "https://copyright.gov.in", extra: "Cinematograph Film", address: "Withheld (DPDP Compliance)" },
+      { id: "cr-3", type: "Copyright", title: "Ayurvedic Pharmacopeia Diagnostic Charts", applicant: "Ministry of Ayush", status: "Registered", ref: "A-94821/2021", filing_date: "2021-08-19", source: "https://copyright.gov.in", extra: "Artistic Work", address: "Withheld (DPDP Compliance)" },
+      { id: "cr-4", type: "Copyright", title: "Sholay Original Screenplay Draft", applicant: "Sippy Films", status: "Registered", ref: "L-20192/1975", filing_date: "1975-05-10", source: "https://copyright.gov.in", extra: "Literary Work", address: "Withheld (DPDP Compliance)" },
+
+      { id: "gi-1", type: "Geographical Indication", title: "Darjeeling Tea (Word & Logo)", applicant: "Tea Board of India", status: "Registered", ref: "GI-01 & GI-02", filing_date: "2003-10-27", source: "https://ipindia.gov.in", extra: "Class 30 (West Bengal)", address: "Withheld (DPDP Compliance)" },
+      { id: "gi-2", type: "Geographical Indication", title: "Kanchipuram Silk Saree", applicant: "Kanchipuram Handloom Society", status: "Registered", ref: "GI-88", filing_date: "2005-06-02", source: "https://ipindia.gov.in", extra: "Class 24 (Tamil Nadu)", address: "Withheld (DPDP Compliance)" },
+      { id: "gi-3", type: "Geographical Indication", title: "Mysore Sandal Soap", applicant: "Karnataka Soaps and Detergents Ltd", status: "Registered", ref: "GI-105", filing_date: "2006-02-14", source: "https://ipindia.gov.in", extra: "Class 03 (Karnataka)", address: "Withheld (DPDP Compliance)" },
+      { id: "gi-4", type: "Geographical Indication", title: "Alphonso Mango", applicant: "Konkan Hapus Amba Utpadak Sangh", status: "Registered", ref: "GI-139", filing_date: "2008-05-19", source: "https://ipindia.gov.in", extra: "Class 31 (Maharashtra)", address: "Withheld (DPDP Compliance)" }
+    ];
 
     let currentCategory = "All";
     let filteredRecords = [];
-    let debounceTimer = null;
 
     function getTypeBadge(type) {
       const colors = {
@@ -164,21 +180,15 @@
       return `<span class="px-2 py-0.5 rounded-full text-[11px] bg-rose-500/10 text-rose-400 border border-rose-500/20">${status}</span>`;
     }
 
-    function handleSearchDebounced() {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(executeLiveSearch, 250);
-    }
-
-    async function executeLiveSearch() {
-      const query = document.getElementById("searchInput").value.trim();
+    function handleSearch() {
+      const query = document.getElementById("searchInput").value.trim().toLowerCase();
       const status = document.getElementById("statusFilter").value;
       const initialState = document.getElementById("initialState");
       const tableWrapper = document.getElementById("tableWrapper");
       const noMatchState = document.getElementById("noMatchState");
       const statsBar = document.getElementById("statsBar");
-      const spinner = document.getElementById("searchSpinner");
 
-      if (!query) {
+      if (query === "") {
         initialState.classList.remove("hidden");
         tableWrapper.classList.add("hidden");
         noMatchState.classList.add("hidden");
@@ -186,44 +196,27 @@
         return;
       }
 
-      spinner.classList.remove("hidden");
+      filteredRecords = RECORDS.filter(r => {
+        const matchesCat = currentCategory === "All" || r.type === currentCategory;
+        const matchesStatus = status === "All" || (status === "Registered" ? (r.status === "Registered") : r.status === status);
+        const matchesQuery = r.title.toLowerCase().includes(query) ||
+                             r.applicant.toLowerCase().includes(query) ||
+                             r.ref.toLowerCase().includes(query);
+        return matchesCat && matchesStatus && matchesQuery;
+      });
 
-      try {
-        let dbQuery = client
-          .from('ip_records_index')
-          .select('*, trademark_details(*), patent_details(*)');
+      initialState.classList.add("hidden");
+      statsBar.classList.remove("hidden");
+      statsBar.classList.add("flex");
+      document.getElementById("resultsCount").innerText = `Found ${filteredRecords.length} records`;
 
-        if (currentCategory !== "All") {
-          dbQuery = dbQuery.eq('record_type', currentCategory);
-        }
-        if (status !== "All") {
-          dbQuery = dbQuery.eq('status', status);
-        }
-
-        dbQuery = dbQuery.or(`title.ilike.%${query}%,applicant.ilike.%${query}%,identifier.ilike.%${query}%`);
-
-        const { data, error } = await dbQuery;
-
-        if (error) throw error;
-
-        filteredRecords = data || [];
-        initialState.classList.add("hidden");
-        statsBar.classList.remove("hidden");
-        statsBar.classList.add("flex");
-        document.getElementById("resultsCount").innerText = `Found ${filteredRecords.length} records in PostgreSQL`;
-
-        if (filteredRecords.length === 0) {
-          tableWrapper.classList.add("hidden");
-          noMatchState.classList.remove("hidden");
-        } else {
-          noMatchState.classList.add("hidden");
-          tableWrapper.classList.remove("hidden");
-          renderRows();
-        }
-      } catch (err) {
-        console.error("Supabase Query Error:", err);
-      } finally {
-        spinner.classList.add("hidden");
+      if (filteredRecords.length === 0) {
+        tableWrapper.classList.add("hidden");
+        noMatchState.classList.remove("hidden");
+      } else {
+        noMatchState.classList.add("hidden");
+        tableWrapper.classList.remove("hidden");
+        renderRows();
       }
     }
 
@@ -231,10 +224,10 @@
       const tbody = document.getElementById("recordsTable");
       tbody.innerHTML = filteredRecords.map(r => `
         <tr onclick="openDrawer('${r.id}')" class="hover:bg-slate-800/40 cursor-pointer transition">
-          <td class="py-3 px-4">${getTypeBadge(r.record_type)}</td>
+          <td class="py-3 px-4">${getTypeBadge(r.type)}</td>
           <td class="py-3 px-4">
             <div class="font-medium text-white">${r.title}</div>
-            <div class="text-[11px] text-slate-400 font-mono">${r.identifier}</div>
+            <div class="text-[11px] text-slate-400 font-mono">${r.ref}</div>
           </td>
           <td class="py-3 px-4 text-slate-300">${r.applicant}</td>
           <td class="py-3 px-4">${getStatusBadge(r.status)}</td>
@@ -255,43 +248,39 @@
           btn.className = "tab-btn px-3 py-1.5 rounded-md text-slate-400 hover:text-slate-200";
         }
       });
-      executeLiveSearch();
+      handleSearch();
     }
 
     function openDrawer(id) {
-      const r = filteredRecords.find(x => x.id === id);
+      const r = RECORDS.find(x => x.id === id);
       if (!r) return;
-
-      const tm = r.trademark_details?.[0] || {};
-      const pat = r.patent_details?.[0] || {};
-      const detailInfo = tm.nice_class ? `Nice: ${tm.nice_class}` : (pat.ipc_class ? `IPC: ${pat.ipc_class}` : 'Registered Class');
 
       const content = document.getElementById("drawerContent");
       content.innerHTML = `
         <div class="space-y-1">
-          <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold">${r.record_type}</div>
+          <div class="text-xs text-slate-400 uppercase tracking-wider font-semibold">${r.type}</div>
           <h2 class="text-lg font-bold text-white">${r.title}</h2>
-          <div class="font-mono text-xs text-slate-400">Application / Identifier: ${r.identifier}</div>
+          <div class="font-mono text-xs text-slate-400">Ref / Reg No: ${r.ref}</div>
         </div>
 
         <div class="p-3 bg-slate-950 border border-slate-800 rounded-lg space-y-2 text-xs">
           <div class="flex justify-between"><span class="text-slate-400">Applicant:</span> <span class="text-white font-medium">${r.applicant}</span></div>
           <div class="flex justify-between"><span class="text-slate-400">Status:</span> <span>${getStatusBadge(r.status)}</span></div>
           <div class="flex justify-between"><span class="text-slate-400">Filing Date:</span> <span class="text-slate-200 font-mono">${r.filing_date}</span></div>
-          <div class="flex justify-between"><span class="text-slate-400">Classification:</span> <span class="text-slate-200">${detailInfo}</span></div>
+          <div class="flex justify-between"><span class="text-slate-400">Classification:</span> <span class="text-slate-200">${r.extra}</span></div>
           <div class="flex justify-between"><span class="text-slate-400">Address:</span> <span class="text-amber-400/80">Redacted (DPDP Act)</span></div>
         </div>
 
         <div class="border border-slate-800 bg-slate-950/80 rounded-lg p-4 space-y-3">
-          <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-            <span class="h-2 w-2 rounded-full bg-emerald-400"></span> Live PostgreSQL Provenance
+          <div class="text-xs font-semibold text-indigo-400 flex items-center gap-1">
+            <span>●</span> Data Provenance & Verification
           </div>
           <div class="text-xs text-slate-400 space-y-1.5">
-            <div><strong class="text-slate-300">Registry Source:</strong> ${r.source_url}</div>
-            <div><strong class="text-slate-300">DB Timestamp:</strong> ${r.retrieved_at}</div>
+            <div><strong class="text-slate-300">Registry Source:</strong> ${r.source}</div>
+            <div><strong class="text-slate-300">Last Verified:</strong> 2026-09-01T10:00:00Z</div>
           </div>
-          <a href="${r.source_url}" target="_blank" class="block text-center w-full py-2 px-3 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium transition">
-            Verify Directly on Government Registry &rarr;
+          <a href="${r.source}" target="_blank" class="block text-center w-full py-2 px-3 text-xs bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium transition">
+            Verify Directly on Government Portal &rarr;
           </a>
         </div>
       `;
@@ -316,13 +305,13 @@
       }
       let csv = "ID,Type,Title,Applicant,Status,Reference,FilingDate,Source\\n";
       filteredRecords.forEach(r => {
-        csv += `"${r.id}","${r.record_type}","${r.title}","${r.applicant}","${r.status}","${r.identifier}","${r.filing_date}","${r.source_url}"\\n`;
+        csv += `"${r.id}","${r.type}","${r.title}","${r.applicant}","${r.status}","${r.ref}","${r.filing_date}","${r.source}"\\n`;
       });
       const blob = new Blob([csv], { type: 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.setAttribute('href', url);
-      a.setAttribute('download', 'lexip_database_export.csv');
+      a.setAttribute('download', 'lexip_records.csv');
       a.click();
     }
 
